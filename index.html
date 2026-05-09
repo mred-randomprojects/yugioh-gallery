@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reshef Card Archive</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="masthead__copy">
+        <p class="eyebrow">Yu-Gi-Oh! Reshef of Destruction</p>
+        <h1>European Card Archive</h1>
+      </div>
+      <div class="source-strip" aria-label="Source links">
+        <a href="https://yugipedia.com/wiki/Gallery_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards_(European_English)" target="_blank" rel="noreferrer">Gallery</a>
+        <a href="https://yugipedia.com/wiki/List_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards" target="_blank" rel="noreferrer">Stats</a>
+      </div>
+    </header>
+
+    <main class="app">
+      <section class="controls" aria-label="Card controls">
+        <label class="field field--search">
+          <span>Search</span>
+          <input id="searchInput" type="search" placeholder="Name, #, password, type, alignment">
+        </label>
+
+        <label class="field">
+          <span>Sort</span>
+          <select id="sortSelect">
+            <option value="number">Number</option>
+            <option value="name">Name</option>
+            <option value="atk">ATK</option>
+            <option value="def">DEF</option>
+            <option value="cost">Cost</option>
+            <option value="duelistLevel">Duelist Level</option>
+            <option value="level">Card Level</option>
+            <option value="type">Type</option>
+            <option value="attribute">Alignment</option>
+            <option value="password">Password</option>
+          </select>
+        </label>
+
+        <button id="directionButton" class="icon-button" type="button" aria-label="Toggle sort direction" title="Toggle sort direction">
+          <span aria-hidden="true">&#8595;</span>
+        </button>
+
+        <label class="field">
+          <span>Max Cost</span>
+          <input id="maxCostInput" type="number" min="0" step="1" inputmode="numeric" placeholder="Any">
+        </label>
+
+        <label class="field">
+          <span>Kind</span>
+          <select id="kindSelect">
+            <option value="all">All cards</option>
+            <option value="monster">Monsters</option>
+            <option value="spelltrap">Magic / Trap / Ritual</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Type</span>
+          <select id="typeSelect">
+            <option value="all">All types</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Alignment</span>
+          <select id="attributeSelect">
+            <option value="all">All alignments</option>
+          </select>
+        </label>
+
+        <div class="segmented" aria-label="View mode">
+          <button id="gridButton" type="button" class="is-active">Grid</button>
+          <button id="tableButton" type="button">Table</button>
+        </div>
+
+        <button id="refreshButton" class="refresh-button" type="button">Refresh Source</button>
+      </section>
+
+      <section class="status-panel" aria-live="polite">
+        <div>
+          <span class="status-label">Loaded</span>
+          <strong id="loadedCount">0</strong>
+        </div>
+        <div>
+          <span class="status-label">Showing</span>
+          <strong id="visibleCount">0</strong>
+        </div>
+        <div>
+          <span class="status-label">Monsters</span>
+          <strong id="monsterCount">0</strong>
+        </div>
+        <div>
+          <span class="status-label">Cache</span>
+          <strong id="cacheStatus">Cold</strong>
+        </div>
+      </section>
+
+      <section id="message" class="message" hidden></section>
+
+      <section id="cardGrid" class="card-grid" aria-label="Card grid"></section>
+
+      <section id="tableWrap" class="table-wrap" hidden>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Card</th>
+              <th>Cost</th>
+              <th>DL</th>
+              <th>ATK</th>
+              <th>DEF</th>
+              <th>Level</th>
+              <th>Alignment</th>
+              <th>Type</th>
+              <th>Password</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="cardTable"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <aside id="detailPanel" class="detail" hidden aria-label="Card detail">
+      <button id="closeDetail" class="detail__close" type="button" aria-label="Close detail">&times;</button>
+      <img id="detailImage" alt="">
+      <div class="detail__body">
+        <p id="detailNumber" class="eyebrow"></p>
+        <h2 id="detailName"></h2>
+        <dl id="detailStats"></dl>
+      </div>
+    </aside>
+
+    <footer class="footer">
+      <span>Data is loaded from local data.js after running the import script. Deck Cost and required Duelist Level share the same value in Reshef of Destruction.</span>
+    </footer>
+
+    <template id="cardTemplate">
+      <article class="card-tile">
+        <button class="card-tile__button" type="button">
+          <span class="card-tile__number"></span>
+          <span class="card-tile__image-frame">
+            <img loading="lazy" alt="">
+          </span>
+          <span class="card-tile__name"></span>
+          <span class="card-tile__stats"></span>
+        </button>
+      </article>
+    </template>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
