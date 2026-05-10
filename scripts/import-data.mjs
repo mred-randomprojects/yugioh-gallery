@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
 const localYugipediaListPath = path.join(projectRoot, "List of Yu-Gi-Oh! Reshef of Destruction cards - Yugipedia.html");
+const defaultImageManifestPath = path.join(projectRoot, "assets", "cards", "images.json");
 
 const PAGES = {
   yugipediaGallery: "Gallery_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards_(European_English)",
@@ -31,6 +32,16 @@ const SOURCES = {
     galleryOrigin: "https://yugipedia.com",
     galleryKind: "api",
     galleryUrl: mediaWikiParseUrl("https://yugipedia.com/api.php", PAGES.yugipediaGallery),
+    listKind: "local-html",
+    listPath: localYugipediaListPath,
+  },
+  "fandom-gallery-local-list": {
+    kind: "api",
+    label: "Fandom gallery API + downloaded Yugipedia stats table",
+    origin: "https://yugioh.fandom.com",
+    galleryOrigin: "https://yugioh.fandom.com",
+    galleryKind: "api",
+    galleryUrl: mediaWikiParseUrl("https://yugioh.fandom.com/api.php", PAGES.fandomGallery),
     listKind: "local-html",
     listPath: localYugipediaListPath,
   },
@@ -72,7 +83,7 @@ const SOURCES = {
   },
 };
 
-const AUTO_ORDER = ["local-list", "yugipedia-gallery-local-list", "yugipedia-gallery-fandom-list", "fandom-api", "yugipedia-api", "yugipedia-reader", "fandom-reader"];
+const AUTO_ORDER = ["local-list", "fandom-gallery-local-list", "yugipedia-gallery-local-list", "yugipedia-gallery-fandom-list", "fandom-api", "yugipedia-api", "yugipedia-reader", "fandom-reader"];
 const args = readArgs();
 
 if (args.help) {
@@ -83,6 +94,7 @@ if (args.help) {
 const sourceName = args.source || "auto";
 const outPath = path.resolve(projectRoot, args.out || "data.js");
 const csvPath = args.csv ? path.resolve(projectRoot, String(args.csv)) : null;
+const imageManifestPath = args.images ? path.resolve(projectRoot, String(args.images)) : defaultImageManifestPath;
 const allowMissingImages = Boolean(args["allow-missing-images"]);
 
 try {
@@ -97,6 +109,7 @@ try {
     sourceUrls: {
       gallery: result.source.galleryUrl,
       list: result.source.listUrl || path.relative(projectRoot, result.source.listPath),
+      images: result.imageManifestPath ? path.relative(projectRoot, result.imageManifestPath) : undefined,
     },
     cards: result.cards,
   };
@@ -143,7 +156,10 @@ async function importFromSource(sourceKey) {
     readSourceBody(source, "list"),
   ]);
 
-  const galleryCards = galleryBody ? parseGallery(galleryBody, source.galleryOrigin || source.origin) : [];
+  const galleryCards = mergeGalleryCards(
+    galleryBody ? parseGallery(galleryBody, source.galleryOrigin || source.origin) : [],
+    await readImageManifest(imageManifestPath),
+  );
   const statCards = parseStats(listBody);
   const cards = mergeCards(galleryCards, statCards);
   const statCoverage = cards.filter((card) => {
@@ -167,6 +183,7 @@ async function importFromSource(sourceKey) {
     cards,
     statCoverage,
     imageCoverage,
+    imageManifestPath: galleryCards.some((card) => isLocalImagePath(card.image)) ? imageManifestPath : "",
   };
 }
 
@@ -180,6 +197,36 @@ async function readSourceBody(source, role) {
     return readFile(filePath, "utf8");
   }
   return fetchBody(source[`${role}Url`], kind);
+}
+
+async function readImageManifest(manifestPath) {
+  try {
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    if (!Array.isArray(manifest.cards)) return [];
+    return manifest.cards.map((card) => {
+      const number = parseNumber(card.number);
+      return toGalleryCard(number, card.name || "", card.image || "");
+    }).filter((card) => card.number && card.image);
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+function mergeGalleryCards(primaryCards, localCards) {
+  const byNumber = new Map();
+  for (const card of primaryCards) {
+    if (card.number) byNumber.set(card.number, card);
+  }
+  for (const card of localCards) {
+    if (!card.number) continue;
+    byNumber.set(card.number, {
+      ...(byNumber.get(card.number) || {}),
+      ...card,
+      image: card.image,
+    });
+  }
+  return Array.from(byNumber.values()).sort((a, b) => a.number - b.number);
 }
 
 function mediaWikiParseUrl(base, page) {
@@ -479,8 +526,8 @@ function extractAnchorTexts(html) {
 function extractImageUrl(html, origin) {
   const imgTag = firstMatch(html, /(<img\b[^>]*>)/i);
   if (!imgTag) return "";
-  const direct = getAttr(imgTag, "src") || getAttr(imgTag, "data-src");
-  const srcset = getAttr(imgTag, "srcset") || getAttr(imgTag, "data-srcset");
+  const direct = getAttr(imgTag, "data-src") || getAttr(imgTag, "src");
+  const srcset = getAttr(imgTag, "data-srcset") || getAttr(imgTag, "srcset");
   const fromSrcset = srcset ? srcset.split(",")[0]?.trim().split(/\s+/)[0] : "";
   return normalizeImageUrl(direct || fromSrcset || "", origin);
 }
@@ -567,9 +614,14 @@ function normalizeType(value) {
 function normalizeImageUrl(value, origin = "") {
   const url = normalizeText(value);
   if (!url) return "";
+  if (isLocalImagePath(url)) return url;
   if (url.startsWith("//")) return `https:${url}`;
   if (url.startsWith("/")) return `${origin}${url}`;
   return url;
+}
+
+function isLocalImagePath(value) {
+  return /^(?:\.?\/)?assets\/cards\//.test(normalizeText(value));
 }
 
 function parseNumber(value) {
@@ -648,15 +700,17 @@ function printHelp() {
   console.log(`Usage:
   node scripts/import-data.mjs
   node scripts/import-data.mjs --source=local-list --csv=reshef-cards.csv
+  node scripts/import-data.mjs --source=local-list --images=assets/cards/images.json
   node scripts/import-data.mjs --source=yugipedia-gallery-fandom-list
   node scripts/import-data.mjs --source=yugipedia-api
   node scripts/import-data.mjs --source=fandom-api
   node scripts/import-data.mjs --source=yugipedia-reader --allow-missing-images
 
 Options:
-  --source=auto|local-list|yugipedia-gallery-local-list|yugipedia-gallery-fandom-list|yugipedia-api|fandom-api|yugipedia-reader|fandom-reader
+  --source=auto|local-list|fandom-gallery-local-list|yugipedia-gallery-local-list|yugipedia-gallery-fandom-list|yugipedia-api|fandom-api|yugipedia-reader|fandom-reader
   --out=data.js
   --csv=reshef-cards.csv
+  --images=assets/cards/images.json
   --timeout=20000
   --allow-missing-images
 `);

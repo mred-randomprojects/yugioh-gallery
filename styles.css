@@ -124,7 +124,7 @@ select {
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(220px, 1.8fr) repeat(5, minmax(130px, 1fr)) auto auto auto;
+  grid-template-columns: minmax(220px, 1.8fr) repeat(6, minmax(118px, 1fr)) auto auto auto;
   gap: 0.7rem;
   align-items: end;
   padding: 0.85rem;
@@ -141,11 +141,18 @@ select {
   min-width: 0;
 }
 
-.field span {
+.field > span,
+.field legend {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+fieldset.field {
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 input,
@@ -169,9 +176,55 @@ select {
 
 input:focus,
 select:focus,
+.multi-select:focus-within,
 button:focus-visible {
   border-color: var(--amber);
   box-shadow: 0 0 0 3px rgba(216, 163, 63, 0.18);
+}
+
+.multi-select {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  min-height: 2.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.multi-select__option {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.multi-select__option + .multi-select__option {
+  border-left: 1px solid rgba(87, 80, 63, 0.7);
+}
+
+.multi-select__option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.field .multi-select__option span {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: none;
+}
+
+.multi-select__option input:checked + span {
+  color: #15160f;
+  background: var(--amber);
 }
 
 .icon-button,
@@ -291,10 +344,32 @@ button:focus-visible {
   border-color: rgba(240, 193, 90, 0.8);
 }
 
-.card-tile__number {
+.card-tile__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.card-tile__number,
+.card-tile__sacrifices {
   color: var(--amber);
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.card-tile__sacrifices {
+  flex: 0 0 auto;
+  max-width: 70%;
+  overflow: hidden;
+  padding: 0.18rem 0.42rem;
+  border: 1px solid rgba(240, 193, 90, 0.42);
+  border-radius: 999px;
+  color: #15160f;
+  background: var(--amber);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-tile__image-frame {

@@ -22,7 +22,7 @@
       <section class="controls" aria-label="Card controls">
         <label class="field field--search">
           <span>Search</span>
-          <input id="searchInput" type="search" placeholder="Name, #, password, type, alignment">
+          <input id="searchInput" type="search" placeholder="Name, #, password, type, alignment, sacrifices">
         </label>
 
         <label class="field">
@@ -42,13 +42,35 @@
         </label>
 
         <button id="directionButton" class="icon-button" type="button" aria-label="Toggle sort direction" title="Toggle sort direction">
-          <span aria-hidden="true">&#8595;</span>
+          <span aria-hidden="true">&#8593;</span>
         </button>
 
         <label class="field">
           <span>Max Cost</span>
           <input id="maxCostInput" type="number" min="0" step="1" inputmode="numeric" placeholder="Any">
         </label>
+
+        <fieldset class="field field--sacrifices">
+          <legend>Sacrifices</legend>
+          <div class="multi-select" aria-label="Sacrifice filter">
+            <label class="multi-select__option" title="0 sacrifices">
+              <input name="sacrificeFilter" type="checkbox" value="0">
+              <span>0</span>
+            </label>
+            <label class="multi-select__option" title="1 sacrifice">
+              <input name="sacrificeFilter" type="checkbox" value="1">
+              <span>1</span>
+            </label>
+            <label class="multi-select__option" title="2 sacrifices">
+              <input name="sacrificeFilter" type="checkbox" value="2">
+              <span>2</span>
+            </label>
+            <label class="multi-select__option" title="3 sacrifices">
+              <input name="sacrificeFilter" type="checkbox" value="3">
+              <span>3</span>
+            </label>
+          </div>
+        </fieldset>
 
         <label class="field">
           <span>Kind</span>
@@ -143,7 +165,10 @@
     <template id="cardTemplate">
       <article class="card-tile">
         <button class="card-tile__button" type="button">
-          <span class="card-tile__number"></span>
+          <span class="card-tile__meta">
+            <span class="card-tile__number"></span>
+            <span class="card-tile__sacrifices"></span>
+          </span>
           <span class="card-tile__image-frame">
             <img loading="lazy" alt="">
           </span>

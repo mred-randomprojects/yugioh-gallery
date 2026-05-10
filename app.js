@@ -14,6 +14,7 @@ const ATTRIBUTE_NAMES = {
   White: "Light",
   Light: "Light",
 };
+const NUMERIC_SORT_KEYS = new Set(["atk", "def", "cost", "duelistLevel", "level", "number"]);
 
 const state = {
   cards: [],
@@ -28,6 +29,7 @@ const els = {
   sort: document.querySelector("#sortSelect"),
   direction: document.querySelector("#directionButton"),
   maxCost: document.querySelector("#maxCostInput"),
+  sacrifices: Array.from(document.querySelectorAll("[name='sacrificeFilter']")),
   kind: document.querySelector("#kindSelect"),
   type: document.querySelector("#typeSelect"),
   attribute: document.querySelector("#attributeSelect"),
@@ -54,6 +56,8 @@ const els = {
 document.addEventListener("DOMContentLoaded", init);
 
 function init() {
+  syncSortState();
+  updateSortDirectionButton();
   bindEvents();
   if (location.protocol === "file:") {
     els.refresh.textContent = "Import Needed";
@@ -69,18 +73,19 @@ function init() {
 function bindEvents() {
   els.search.addEventListener("input", render);
   els.sort.addEventListener("change", () => {
-    state.sortKey = els.sort.value;
+    syncSortState();
     render();
   });
   els.direction.addEventListener("click", () => {
     state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
-    els.direction.firstElementChild.innerHTML = state.sortDirection === "asc" ? "&#8593;" : "&#8595;";
+    updateSortDirectionButton();
     render();
   });
   els.kind.addEventListener("change", render);
   els.type.addEventListener("change", render);
   els.attribute.addEventListener("change", render);
   els.maxCost.addEventListener("input", render);
+  els.sacrifices.forEach((input) => input.addEventListener("change", render));
   els.refresh.addEventListener("click", () => {
     if (location.protocol === "file:") {
       showMessage("Live refresh is blocked from file:// in this browser. Run node scripts/import-data.mjs, then reload this file.", "neutral");
@@ -386,8 +391,10 @@ function fillSelect(select, values, label) {
 }
 
 function render() {
+  syncSortState();
   const query = els.search.value.trim().toLowerCase();
   const maxCost = parseNumber(els.maxCost.value);
+  const selectedSacrifices = selectedSacrificeValues();
   const kind = els.kind.value;
   const type = els.type.value;
   const attribute = els.attribute.value;
@@ -398,6 +405,7 @@ function render() {
       if (type !== "all" && card.type !== type) return false;
       if (attribute !== "all" && card.attribute !== attribute) return false;
       if (Number.isFinite(maxCost) && (!Number.isFinite(card.cost) || card.cost > maxCost)) return false;
+      if (selectedSacrifices.size && !selectedSacrifices.has(sacrificeCountForLevel(card.level))) return false;
       if (!query) return true;
       return [
         card.numberText,
@@ -406,6 +414,8 @@ function render() {
         card.password,
         card.type,
         card.attribute,
+        card.level,
+        formatSacrificeCount(card.level),
         card.status,
       ]
         .filter(Boolean)
@@ -427,8 +437,11 @@ function compareCards(a, b) {
   const aValue = comparableValue(a, key);
   const bValue = comparableValue(b, key);
 
-  if (typeof aValue === "number" && typeof bValue === "number") {
-    if (aValue !== bValue) return (aValue - bValue) * direction;
+  if (NUMERIC_SORT_KEYS.has(key)) {
+    const aHasValue = Number.isFinite(aValue);
+    const bHasValue = Number.isFinite(bValue);
+    if (aHasValue && bHasValue && aValue !== bValue) return (aValue - bValue) * direction;
+    if (aHasValue !== bHasValue) return aHasValue ? -1 : 1;
   } else {
     const result = String(aValue).localeCompare(String(bValue), undefined, { numeric: true });
     if (result) return result * direction;
@@ -439,10 +452,26 @@ function compareCards(a, b) {
 
 function comparableValue(card, key) {
   const value = card[key];
-  if (["atk", "def", "cost", "duelistLevel", "level", "number"].includes(key)) {
-    return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+  if (NUMERIC_SORT_KEYS.has(key)) {
+    return value;
   }
   return value || "";
+}
+
+function syncSortState() {
+  state.sortKey = els.sort.value;
+}
+
+function updateSortDirectionButton() {
+  els.direction.firstElementChild.innerHTML = state.sortDirection === "asc" ? "&#8593;" : "&#8595;";
+}
+
+function selectedSacrificeValues() {
+  return new Set(
+    els.sacrifices
+      .filter((input) => input.checked)
+      .map((input) => Number(input.value)),
+  );
 }
 
 function renderGrid() {
@@ -454,6 +483,7 @@ function renderGrid() {
     const img = tile.querySelector("img");
     const frame = tile.querySelector(".card-tile__image-frame");
     tile.querySelector(".card-tile__number").textContent = `#${card.numberText}`;
+    tile.querySelector(".card-tile__sacrifices").textContent = formatSacrificeBadge(card.level);
     tile.querySelector(".card-tile__name").textContent = card.name;
     tile.querySelector(".card-tile__stats").innerHTML = [
       statPill("ATK", formatValue(card.atk)),
@@ -521,6 +551,7 @@ function showDetail(card) {
     ["ATK", formatValue(card.atk)],
     ["DEF", formatValue(card.def)],
     ["Card Level", formatValue(card.level)],
+    ["Sacrifices", formatSacrificeCount(card.level)],
     ["Alignment", card.attribute || "-"],
     ["Type", card.type || "-"],
     ["Password", formatPassword(card.password)],
@@ -646,6 +677,24 @@ function uniqueSorted(values) {
 
 function formatValue(value) {
   return Number.isFinite(value) ? value.toLocaleString() : "-";
+}
+
+function formatSacrificeBadge(level) {
+  const sacrifices = sacrificeCountForLevel(level);
+  return sacrifices === null ? "Sacrifices -" : `Sacrifices ${sacrifices}`;
+}
+
+function formatSacrificeCount(level) {
+  const sacrifices = sacrificeCountForLevel(level);
+  return sacrifices === null ? "-" : String(sacrifices);
+}
+
+function sacrificeCountForLevel(level) {
+  if (!Number.isFinite(level)) return null;
+  if (level <= 4) return 0;
+  if (level <= 6) return 1;
+  if (level <= 8) return 2;
+  return 3;
 }
 
 function escapeHtml(value) {

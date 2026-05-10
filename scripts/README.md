@@ -20,6 +20,17 @@ node scripts/import-data.mjs --source=local-list --csv=reshef-cards.csv
 
 The CSV has the same normalized fields used by the app: number, name, cost, Duelist Level, alignment, type, level, ATK, DEF, password, status, kind, and image.
 
+## 3. Download card images
+
+The browser can display the Fandom gallery because it lazy-loads images from Fandom's CDN while the page is open. To make the static archive fully local, download those files and write an image manifest:
+
+```bash
+node scripts/download-images.mjs
+node scripts/import-data.mjs --source=local-list --csv=reshef-cards.csv
+```
+
+Images are saved under `assets/cards/`, and `data.js` will use `assets/cards/images.json` automatically when it exists.
+
 You can also try the default auto mode:
 
 ```bash
