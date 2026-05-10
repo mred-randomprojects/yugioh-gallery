@@ -18,7 +18,7 @@
       </div>
     </header>
 
-    <main class="app">
+    <div id="appShell" class="app-shell">
       <section class="controls" aria-label="Card controls">
         <label class="field field--search">
           <span>Search</span>
@@ -124,39 +124,42 @@
 
       <section id="message" class="message" hidden></section>
 
-      <section id="cardGrid" class="card-grid" aria-label="Card grid"></section>
+      <main class="app">
+        <section id="cardGrid" class="card-grid" aria-label="Card grid"></section>
 
-      <section id="tableWrap" class="table-wrap" hidden>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Card</th>
-              <th>Cost</th>
-              <th>DL</th>
-              <th>ATK</th>
-              <th>DEF</th>
-              <th>Level</th>
-              <th>Alignment</th>
-              <th>Type</th>
-              <th>Password</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="cardTable"></tbody>
-        </table>
-      </section>
-    </main>
+        <section id="tableWrap" class="table-wrap" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Card</th>
+                <th>Cost</th>
+                <th>DL</th>
+                <th>ATK</th>
+                <th>DEF</th>
+                <th>Level</th>
+                <th>Alignment</th>
+                <th>Type</th>
+                <th>Password</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="cardTable"></tbody>
+          </table>
+        </section>
+      </main>
 
-    <aside id="detailPanel" class="detail" hidden aria-label="Card detail">
-      <button id="closeDetail" class="detail__close" type="button" aria-label="Close detail">&times;</button>
-      <img id="detailImage" alt="">
-      <div class="detail__body">
-        <p id="detailNumber" class="eyebrow"></p>
-        <h2 id="detailName"></h2>
-        <dl id="detailStats"></dl>
-      </div>
-    </aside>
+      <aside id="detailPanel" class="detail" hidden aria-label="Card detail">
+        <button id="closeDetail" class="detail__close" type="button" aria-label="Close detail">&times;</button>
+        <img id="detailImage" alt="">
+        <div class="detail__body">
+          <p id="detailNumber" class="eyebrow"></p>
+          <h2 id="detailName"></h2>
+          <a id="detailWikiLink" class="detail__wiki-link wiki-link" target="_blank" rel="noreferrer">View effects on Yugipedia</a>
+          <dl id="detailStats"></dl>
+        </div>
+      </aside>
+    </div>
 
     <footer class="footer">
       <span>Data is loaded from local data.js after running the import script. Deck Cost and required Duelist Level share the same value in Reshef of Destruction.</span>
@@ -175,6 +178,7 @@
           <span class="card-tile__name"></span>
           <span class="card-tile__stats"></span>
         </button>
+        <a class="card-tile__effect-link wiki-link" target="_blank" rel="noreferrer">Effects</a>
       </article>
     </template>
 

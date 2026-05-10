@@ -15,6 +15,13 @@ const ATTRIBUTE_NAMES = {
   Light: "Light",
 };
 const NUMERIC_SORT_KEYS = new Set(["atk", "def", "cost", "duelistLevel", "level", "number"]);
+const CARD_WIKI_PAGE_OVERRIDES = {
+  584: 'Spirit_Message_"I"_(ROD)',
+  585: 'Spirit_Message_"N"_(ROD)',
+  586: 'Spirit_Message_"A"_(ROD)',
+  587: 'Spirit_Message_"L"_(ROD)',
+};
+let controlsResizeObserver = null;
 
 const state = {
   cards: [],
@@ -41,6 +48,8 @@ const els = {
   monsterCount: document.querySelector("#monsterCount"),
   cacheStatus: document.querySelector("#cacheStatus"),
   message: document.querySelector("#message"),
+  shell: document.querySelector("#appShell"),
+  controls: document.querySelector(".controls"),
   grid: document.querySelector("#cardGrid"),
   tableWrap: document.querySelector("#tableWrap"),
   table: document.querySelector("#cardTable"),
@@ -50,6 +59,7 @@ const els = {
   detailImage: document.querySelector("#detailImage"),
   detailNumber: document.querySelector("#detailNumber"),
   detailName: document.querySelector("#detailName"),
+  detailWiki: document.querySelector("#detailWikiLink"),
   detailStats: document.querySelector("#detailStats"),
 };
 
@@ -59,6 +69,7 @@ function init() {
   syncSortState();
   updateSortDirectionButton();
   bindEvents();
+  setupStickyOffset();
   if (location.protocol === "file:") {
     els.refresh.textContent = "Import Needed";
     els.refresh.title = "Run node scripts/import-data.mjs, then reload this file.";
@@ -101,11 +112,11 @@ function bindEvents() {
   els.gridButton.addEventListener("click", () => setView("grid"));
   els.tableButton.addEventListener("click", () => setView("table"));
   els.closeDetail.addEventListener("click", () => {
-    els.detail.hidden = true;
+    setDetailOpen(false);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      els.detail.hidden = true;
+      setDetailOpen(false);
     }
   });
 }
@@ -480,8 +491,10 @@ function renderGrid() {
   state.filtered.forEach((card) => {
     const tile = els.template.content.firstElementChild.cloneNode(true);
     const button = tile.querySelector("button");
+    const wikiLink = tile.querySelector(".card-tile__effect-link");
     const img = tile.querySelector("img");
     const frame = tile.querySelector(".card-tile__image-frame");
+    wikiLink.href = cardWikiUrl(card);
     tile.querySelector(".card-tile__number").textContent = `#${card.numberText}`;
     tile.querySelector(".card-tile__sacrifices").textContent = formatSacrificeBadge(card.level);
     tile.querySelector(".card-tile__name").textContent = card.name;
@@ -517,7 +530,7 @@ function renderTable() {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>#${card.numberText}</td>
-      <td><strong>${escapeHtml(card.name)}</strong></td>
+      <td><strong>${escapeHtml(card.name)}</strong><a class="table-effect-link wiki-link" href="${escapeHtml(cardWikiUrl(card))}" target="_blank" rel="noreferrer">Effects</a></td>
       <td>${formatValue(card.cost)}</td>
       <td>${formatValue(card.duelistLevel)}</td>
       <td>${formatValue(card.atk)}</td>
@@ -528,6 +541,9 @@ function renderTable() {
       <td>${escapeHtml(formatPassword(card.password))}</td>
       <td>${escapeHtml(card.status || "-")}</td>
     `;
+    row.querySelector(".wiki-link").addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
     row.addEventListener("click", () => showDetail(card));
     fragment.append(row);
   });
@@ -545,6 +561,7 @@ function showDetail(card) {
   els.detailImage.alt = card.name;
   els.detailNumber.textContent = `#${card.numberText}`;
   els.detailName.textContent = card.name;
+  els.detailWiki.href = cardWikiUrl(card);
   els.detailStats.innerHTML = [
     ["Deck Cost", formatValue(card.cost)],
     ["Required Duelist Level", formatValue(card.duelistLevel)],
@@ -560,7 +577,7 @@ function showDetail(card) {
   ]
     .map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`)
     .join("");
-  els.detail.hidden = false;
+  setDetailOpen(true);
 }
 
 function setView(view) {
@@ -570,6 +587,25 @@ function setView(view) {
   els.gridButton.classList.toggle("is-active", view === "grid");
   els.tableButton.classList.toggle("is-active", view === "table");
   render();
+}
+
+function setDetailOpen(isOpen) {
+  els.detail.hidden = !isOpen;
+  els.shell.classList.toggle("has-detail", isOpen);
+}
+
+function setupStickyOffset() {
+  updateStickyOffset();
+  window.addEventListener("resize", updateStickyOffset);
+  if ("ResizeObserver" in window) {
+    controlsResizeObserver = new ResizeObserver(updateStickyOffset);
+    controlsResizeObserver.observe(els.controls);
+  }
+}
+
+function updateStickyOffset() {
+  const controlsHeight = els.controls.getBoundingClientRect().height;
+  els.shell.style.setProperty("--detail-sticky-top", `${Math.ceil(controlsHeight + 16)}px`);
 }
 
 function normalizeCard(card) {
@@ -682,6 +718,26 @@ function formatValue(value) {
 function formatSacrificeBadge(level) {
   const sacrifices = sacrificeCountForLevel(level);
   return sacrifices === null ? "Sacrifices -" : `Sacrifices ${sacrifices}`;
+}
+
+function cardWikiUrl(card) {
+  const overridePageName = CARD_WIKI_PAGE_OVERRIDES[card.number];
+  const pageName = overridePageName || `${wikiPageTitle(card.name)}_(ROD)`;
+  return `https://yugipedia.com/wiki/${encodeWikiPageName(pageName)}`;
+}
+
+function wikiPageTitle(name) {
+  return normalizeText(name)
+    .replace(/#/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function encodeWikiPageName(pageName) {
+  return encodeURIComponent(pageName)
+    .replace(/%28/g, "(")
+    .replace(/%29/g, ")")
+    .replace(/%2C/g, ",")
+    .replace(/'/g, "%27");
 }
 
 function formatSacrificeCount(level) {
