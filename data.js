@@ -1,11 +1,4 @@
 window.RESHEF_CARD_DATA = {
-  "generatedAt": "2026-05-09T13:43:41.417Z",
-  "source": "Downloaded Yugipedia stats table",
-  "sourceKey": "local-list",
-  "sourceUrls": {
-    "list": "List of Yu-Gi-Oh! Reshef of Destruction cards - Yugipedia.html",
-    "images": "assets/cards/images.json"
-  },
   "cards": [
     {
       "number": 1,

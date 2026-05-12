@@ -3,24 +3,20 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Reshef Card Archive</title>
+    <title>Reshef of Destruction &amp; Sacred Cards Archive</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <header class="masthead">
       <div class="masthead__copy">
-        <p class="eyebrow">Yu-Gi-Oh! Reshef of Destruction</p>
-        <h1>European Card Archive</h1>
+        <p class="eyebrow">Yu-Gi-Oh! Game Boy Advance</p>
+        <h1>Reshef of Destruction &amp; Sacred Cards Archive</h1>
       </div>
       <div class="masthead__actions">
         <nav class="tool-tabs" aria-label="Tool selector">
           <button id="galleryToolButton" class="is-active" type="button" aria-pressed="true">Gallery</button>
           <button id="fieldTypesToolButton" type="button" aria-pressed="false">Field Types</button>
         </nav>
-        <div class="source-strip" aria-label="Source links">
-          <a href="https://yugipedia.com/wiki/Gallery_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards_(European_English)" target="_blank" rel="noreferrer">Gallery source</a>
-          <a href="https://yugipedia.com/wiki/List_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards" target="_blank" rel="noreferrer">Card list source</a>
-        </div>
       </div>
     </header>
 
@@ -105,8 +101,6 @@
           <button id="gridButton" type="button" class="is-active">Grid</button>
           <button id="tableButton" type="button">Table</button>
         </div>
-
-        <button id="refreshButton" class="refresh-button" type="button">Refresh Source</button>
       </section>
 
       <section class="status-panel gallery-only" aria-live="polite">
@@ -121,10 +115,6 @@
         <div>
           <span class="status-label">Monsters</span>
           <strong id="monsterCount">0</strong>
-        </div>
-        <div>
-          <span class="status-label">Cache</span>
-          <strong id="cacheStatus">Cold</strong>
         </div>
       </section>
 
@@ -160,6 +150,7 @@
           <div>
             <p class="eyebrow">Field Cheat Sheet</p>
             <h2>Field Types</h2>
+            <p>Every terrain changes the battle math for specific monster types. Use this as a quick reference for boosts, penalties, and the field card tied to each map.</p>
           </div>
           <div class="field-types-summary" aria-label="Terrain modifier summary">
             <span>+30% ATK/DEF</span>
@@ -184,15 +175,11 @@
         <div class="detail__body">
           <p id="detailNumber" class="eyebrow"></p>
           <h2 id="detailName"></h2>
-          <a id="detailWikiLink" class="detail__wiki-link wiki-link" target="_blank" rel="noreferrer">View effects on Yugipedia</a>
+          <a id="detailWikiLink" class="detail__wiki-link wiki-link" target="_blank" rel="noreferrer">View effects</a>
           <dl id="detailStats"></dl>
         </div>
       </aside>
     </div>
-
-    <footer class="footer">
-      <span>Data is loaded from local data.js after running the import script. Deck Cost and required Duelist Level share the same value in Reshef of Destruction.</span>
-    </footer>
 
     <template id="cardTemplate">
       <article class="card-tile">

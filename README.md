@@ -22,4 +22,4 @@ This repository is ready to deploy with GitHub Actions. The workflow at `.github
 4. In GitHub, open the repository settings, go to **Pages**, and set **Build and deployment** to **GitHub Actions**.
 5. After the workflow runs, the deployed URL will appear in the workflow summary and in the repository Pages settings.
 
-The deployed site includes `index.html`, `styles.css`, `app.js`, `data.js`, and the `assets/` directory. The workflow also adds `.nojekyll` to the published artifact so GitHub Pages serves the static files directly.
+The deployed site includes `index.html`, `styles.css`, `app.js`, `data.js`, and browser assets. The workflow also adds `.nojekyll` to the published artifact so GitHub Pages serves the static files directly.

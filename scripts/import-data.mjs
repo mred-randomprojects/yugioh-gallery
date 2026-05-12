@@ -103,14 +103,6 @@ try {
     : await importFromSource(sourceName);
 
   const payload = {
-    generatedAt: new Date().toISOString(),
-    source: result.source.label,
-    sourceKey: result.sourceKey,
-    sourceUrls: {
-      gallery: result.source.galleryUrl,
-      list: result.source.listUrl || path.relative(projectRoot, result.source.listPath),
-      images: result.imageManifestPath ? path.relative(projectRoot, result.imageManifestPath) : undefined,
-    },
     cards: result.cards,
   };
 

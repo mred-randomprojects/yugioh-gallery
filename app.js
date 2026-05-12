@@ -1,11 +1,3 @@
-const SOURCES = {
-  api: "https://yugipedia.com/api.php",
-  galleryPage: "Gallery_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards_(European_English)",
-  listPage: "List_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards",
-};
-
-const CACHE_KEY = "reshef-card-archive:v1";
-const CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 7;
 const ATTRIBUTE_NAMES = {
   Black: "Dark",
   Dark: "Dark",
@@ -29,6 +21,21 @@ const FIELD_CARD_IMAGES = {
   Umi: "assets/cards/downloaded/Umi-ROD-EN-VG.webp",
   Yami: "assets/cards/downloaded/Yami-ROD-EN-VG.webp",
 };
+const DEFAULT_TOOL = "gallery";
+const DEFAULT_VIEW = "grid";
+const DEFAULT_SORT_KEY = "number";
+const DEFAULT_SORT_DIRECTION = "asc";
+const ROUTE_BY_TOOL = {
+  gallery: "gallery",
+  fieldTypes: "field-types",
+};
+const TOOL_BY_ROUTE = {
+  gallery: "gallery",
+  "field-types": "fieldTypes",
+  fieldtypes: "fieldTypes",
+  fields: "fieldTypes",
+};
+const ROUTE_BASE_PATH = getRouteBasePath();
 const MONSTER_TYPES = [
   "Aqua",
   "Beast",
@@ -132,14 +139,16 @@ const TERRAIN_CHEATSHEET = [
   },
 ];
 let controlsResizeObserver = null;
+let isApplyingUrlState = false;
 
 const state = {
   cards: [],
   filtered: [],
-  sortKey: "number",
-  sortDirection: "asc",
-  view: "grid",
-  tool: "gallery",
+  sortKey: DEFAULT_SORT_KEY,
+  sortDirection: DEFAULT_SORT_DIRECTION,
+  view: DEFAULT_VIEW,
+  tool: DEFAULT_TOOL,
+  selectedCardNumber: null,
 };
 
 const els = {
@@ -153,13 +162,11 @@ const els = {
   kind: document.querySelector("#kindSelect"),
   type: document.querySelector("#typeSelect"),
   attribute: document.querySelector("#attributeSelect"),
-  refresh: document.querySelector("#refreshButton"),
   gridButton: document.querySelector("#gridButton"),
   tableButton: document.querySelector("#tableButton"),
   loadedCount: document.querySelector("#loadedCount"),
   visibleCount: document.querySelector("#visibleCount"),
   monsterCount: document.querySelector("#monsterCount"),
-  cacheStatus: document.querySelector("#cacheStatus"),
   message: document.querySelector("#message"),
   shell: document.querySelector("#appShell"),
   controls: document.querySelector(".controls"),
@@ -182,330 +189,66 @@ const els = {
 document.addEventListener("DOMContentLoaded", init);
 
 function init() {
+  const initialUrl = navigationUrlFromLocation();
   syncSortState();
   updateSortDirectionButton();
   bindEvents();
   setupStickyOffset();
   renderFieldTypes();
-  if (location.protocol === "file:") {
-    els.refresh.textContent = "Import Needed";
-    els.refresh.title = "Run node scripts/import-data.mjs, then reload this file.";
-  }
-  if (loadEmbeddedData()) return;
-  if (hydrateFromCache()) return;
+  if (loadEmbeddedData(initialUrl)) return;
   updateCounts();
-  els.cacheStatus.textContent = "Needs import";
-  showMessage("No local card data yet. Run node scripts/test-sources.mjs, then node scripts/import-data.mjs after you find a working source.", "neutral");
+  showMessage("Card data is unavailable.", "neutral");
 }
 
 function bindEvents() {
-  els.galleryToolButton.addEventListener("click", () => setTool("gallery"));
-  els.fieldTypesToolButton.addEventListener("click", () => setTool("fieldTypes"));
-  els.search.addEventListener("input", render);
+  els.galleryToolButton.addEventListener("click", () => setTool("gallery", { history: "push" }));
+  els.fieldTypesToolButton.addEventListener("click", () => setTool("fieldTypes", { history: "push" }));
+  els.search.addEventListener("input", handleGalleryStateChange);
   els.sort.addEventListener("change", () => {
     syncSortState();
-    render();
+    handleGalleryStateChange();
   });
   els.direction.addEventListener("click", () => {
     state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
     updateSortDirectionButton();
-    render();
+    handleGalleryStateChange();
   });
-  els.kind.addEventListener("change", render);
-  els.type.addEventListener("change", render);
-  els.attribute.addEventListener("change", render);
-  els.maxCost.addEventListener("input", render);
-  els.sacrifices.forEach((input) => input.addEventListener("change", render));
-  els.refresh.addEventListener("click", () => {
-    if (location.protocol === "file:") {
-      showMessage("Live refresh is blocked from file:// in this browser. Run node scripts/import-data.mjs, then reload this file.", "neutral");
-      return;
-    }
-    loadSourceData({ force: true }).catch((error) => {
-      showMessage(`Could not refresh source data. ${error.message}`);
-      if (!state.cards.length) {
-        els.cacheStatus.textContent = "Unavailable";
-      }
-    });
-  });
-  els.gridButton.addEventListener("click", () => setView("grid"));
-  els.tableButton.addEventListener("click", () => setView("table"));
+  els.kind.addEventListener("change", handleGalleryStateChange);
+  els.type.addEventListener("change", handleGalleryStateChange);
+  els.attribute.addEventListener("change", handleGalleryStateChange);
+  els.maxCost.addEventListener("input", handleGalleryStateChange);
+  els.sacrifices.forEach((input) => input.addEventListener("change", handleGalleryStateChange));
+  els.gridButton.addEventListener("click", () => setView("grid", { history: "replace" }));
+  els.tableButton.addEventListener("click", () => setView("table", { history: "replace" }));
   els.closeDetail.addEventListener("click", () => {
-    setDetailOpen(false);
+    setDetailOpen(false, { history: "push" });
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      setDetailOpen(false);
+      setDetailOpen(false, { history: "push" });
     }
+  });
+  window.addEventListener("popstate", () => {
+    applyUrlState(navigationUrlFromLocation());
+    render({ revealSelectedCard: true });
   });
 }
 
-function hydrateFromCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (!cached || !Array.isArray(cached.cards) || !cached.cards.length) return false;
-    state.cards = cached.cards.map(normalizeCard);
-    els.cacheStatus.textContent = "Warm";
-    populateFilters();
-    renderFieldTypes();
-    render();
-    return true;
-  } catch {
-    localStorage.removeItem(CACHE_KEY);
-    return false;
-  }
+function handleGalleryStateChange() {
+  render();
+  syncUrlFromState({ history: "replace" });
 }
 
-function loadEmbeddedData() {
+function loadEmbeddedData(initialUrl) {
   const data = window.RESHEF_CARD_DATA;
   if (!data || !Array.isArray(data.cards) || !data.cards.length) return false;
   state.cards = data.cards.map(normalizeCard);
-  els.cacheStatus.textContent = "Local";
   showMessage("");
   populateFilters();
+  applyUrlState(initialUrl, { replace: true });
   renderFieldTypes();
-  render();
+  render({ revealSelectedCard: true });
   return true;
-}
-
-async function loadSourceData(options = {}) {
-  const cached = readCache();
-  if (!options.force && cached) {
-    state.cards = cached.cards;
-    els.cacheStatus.textContent = "Warm";
-    populateFilters();
-    render();
-    return;
-  }
-
-  showMessage("Loading source pages from Yugipedia...", "neutral");
-  els.cacheStatus.textContent = "Loading";
-
-  const [galleryHtml, listHtml] = await Promise.all([
-    parsePage(SOURCES.galleryPage),
-    parsePage(SOURCES.listPage),
-  ]);
-
-  const galleryCards = parseGallery(galleryHtml);
-  const statCards = parseStatsTable(listHtml);
-  const cards = mergeCards(galleryCards, statCards);
-  const statCoverage = cards.filter((card) => {
-    return Number.isFinite(card.cost) || Number.isFinite(card.atk) || Number.isFinite(card.def);
-  }).length;
-
-  if (cards.length < 700) {
-    throw new Error(`Only ${cards.length} cards were parsed.`);
-  }
-
-  state.cards = cards;
-  localStorage.setItem(CACHE_KEY, JSON.stringify({ createdAt: Date.now(), cards }));
-  els.cacheStatus.textContent = options.force ? "Refreshed" : "Ready";
-  if (statCoverage < 700) {
-    showMessage(`Loaded ${cards.length} gallery cards, but only ${statCoverage} cards had parsed stat fields.`, "error");
-  } else {
-    showMessage("");
-  }
-  populateFilters();
-  renderFieldTypes();
-  render();
-}
-
-function readCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if (!cached || !Array.isArray(cached.cards)) return null;
-    if (Date.now() - Number(cached.createdAt || 0) > CACHE_MAX_AGE) return null;
-    return cached;
-  } catch {
-    return null;
-  }
-}
-
-function parsePage(page) {
-  const params = new URLSearchParams({
-    action: "parse",
-    format: "json",
-    prop: "text",
-    page,
-    disableeditsection: "1",
-    disablelimitreport: "1",
-  });
-  return requestApi(params).then((data) => {
-    const html = data?.parse?.text?.["*"];
-    if (!html) {
-      const message = data?.error?.info || `No parse HTML returned for ${page}`;
-      throw new Error(message);
-    }
-    return html;
-  });
-}
-
-async function requestApi(params) {
-  const query = params.toString();
-  const corsUrl = `${SOURCES.api}?${query}&origin=*`;
-  try {
-    const response = await fetch(corsUrl, { cache: "no-store" });
-    if (response.ok) {
-      return await response.json();
-    }
-  } catch {
-    // Local file origins often need the JSONP path below.
-  }
-  return jsonp(`${SOURCES.api}?${query}`);
-}
-
-function jsonp(url) {
-  return new Promise((resolve, reject) => {
-    const callback = `reshefJsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const script = document.createElement("script");
-    const timer = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("Yugipedia request timed out."));
-    }, 20000);
-
-    function cleanup() {
-      window.clearTimeout(timer);
-      delete window[callback];
-      script.remove();
-    }
-
-    window[callback] = (data) => {
-      cleanup();
-      resolve(data);
-    };
-
-    script.onerror = () => {
-      cleanup();
-      reject(new Error("Yugipedia request failed."));
-    };
-
-    script.src = `${url}&callback=${callback}`;
-    document.head.append(script);
-  });
-}
-
-function parseGallery(html) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const boxes = Array.from(doc.querySelectorAll(".gallerybox"));
-  const items = boxes.length ? boxes : Array.from(doc.querySelectorAll("li, figure"));
-
-  return items
-    .map((item) => {
-      const text = normalizeText(item.textContent);
-      const number = parseNumber(text.match(/#\s*(\d{1,3})/)?.[1]);
-      if (!number) return null;
-
-      const link = Array.from(item.querySelectorAll("a")).find((anchor) => {
-        const value = normalizeText(anchor.textContent);
-        return value && !value.startsWith("#") && !/file:/i.test(anchor.getAttribute("href") || "");
-      });
-      const quotedName = text.match(/"([^"]+)"/)?.[1];
-      const name = normalizeText(link?.textContent || quotedName || "");
-      const image = normalizeImageUrl(item.querySelector("img")?.getAttribute("src") || "");
-
-      return {
-        number,
-        numberText: padNumber(number),
-        name,
-        image,
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.number - b.number);
-}
-
-function parseStatsTable(html) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const tables = Array.from(doc.querySelectorAll("table"));
-  const table = tables.find((candidate) => {
-    const header = normalizeText(candidate.querySelector("tr")?.textContent || "");
-    return /\b(?:Deck Cost|DC)\b/i.test(header) && /\bATK\b/i.test(header) && /\bDEF\b/i.test(header);
-  });
-
-  if (!table) {
-    throw new Error("The Yugipedia stats table was not found.");
-  }
-
-  const headerCells = Array.from(table.querySelectorAll("tr:first-child th, tr:first-child td"));
-  const headers = headerCells.map((cell) => normalizeText(cell.textContent).toLowerCase());
-  const index = {
-    number: findHeader(headers, ["#", "number", "card #"]),
-    card: findHeader(headers, ["card", "name"]),
-    rodName: findHeader(headers, ["rod name"]),
-    cost: findHeader(headers, ["deck cost", "cost", "dc"]),
-    cardType: findHeader(headers, ["card type"]),
-    attribute: findHeader(headers, ["alignment", "attribute", "element"]),
-    type: findHeader(headers, ["type"]),
-    level: findHeader(headers, ["level", "stars"]),
-    atk: findHeader(headers, ["atk", "attack"]),
-    def: findHeader(headers, ["def", "defense"]),
-    password: findHeader(headers, ["password"]),
-    status: findHeader(headers, ["status"]),
-  };
-
-  return Array.from(table.querySelectorAll("tr"))
-    .slice(1)
-    .map((row) => {
-      const cells = Array.from(row.querySelectorAll("th, td"));
-      if (cells.length < 2) return null;
-      const value = (key) => normalizeText(cells[index[key]]?.textContent || "");
-      const rawName = value("card");
-      const rodName = value("rodName");
-      const name = normalizeText(rawName || rodName);
-      if (!name) return null;
-      const cost = parseNumber(value("cost"));
-      const level = parseNumber(value("level"));
-      const atk = parseNumber(value("atk"));
-      const def = parseNumber(value("def"));
-
-      return {
-        number: parseNumber(value("number")),
-        name,
-        rodName: rodName && rodName !== name ? rodName : "",
-        cost,
-        duelistLevel: cost,
-        attribute: normalizeAttribute(value("attribute")),
-        type: normalizeType(value("type") || value("cardType")),
-        level,
-        atk,
-        def,
-        password: value("password"),
-        status: value("status") || "Unlimited",
-      };
-    })
-    .filter(Boolean);
-}
-
-function findHeader(headers, names) {
-  const wanted = names.map((name) => name.toLowerCase());
-  const exact = headers.findIndex((header) => wanted.includes(header));
-  if (exact !== -1) return exact;
-  return headers.findIndex((header) => wanted.some((name) => header.includes(name)));
-}
-
-function mergeCards(galleryCards, statCards) {
-  const statsByNumber = new Map();
-  const statsByName = new Map();
-
-  statCards.forEach((card) => {
-    if (card.number) statsByNumber.set(card.number, card);
-    statsByName.set(nameKey(card.name), card);
-    if (card.rodName) statsByName.set(nameKey(card.rodName), card);
-  });
-
-  return galleryCards.map((galleryCard) => {
-    const stats = statsByNumber.get(galleryCard.number) || statsByName.get(nameKey(galleryCard.name)) || {};
-    const merged = {
-      ...galleryCard,
-      ...stats,
-      number: galleryCard.number,
-      numberText: galleryCard.numberText,
-      name: galleryCard.name || stats.name || `Card #${galleryCard.numberText}`,
-      image: galleryCard.image || stats.image || "",
-    };
-    merged.kind = isMonster(merged) ? "monster" : "spelltrap";
-    return merged;
-  });
 }
 
 function populateFilters() {
@@ -523,7 +266,7 @@ function fillSelect(select, values, label) {
   select.value = values.includes(previous) ? previous : "all";
 }
 
-function render() {
+function render(options = {}) {
   syncSortState();
   const query = els.search.value.trim().toLowerCase();
   const maxCost = parseNumber(els.maxCost.value);
@@ -562,6 +305,7 @@ function render() {
   } else {
     renderTable();
   }
+  syncSelectedDetailAfterRender(options);
 }
 
 function compareCards(a, b) {
@@ -616,6 +360,7 @@ function renderGrid() {
     const wikiLink = tile.querySelector(".card-tile__effect-link");
     const img = tile.querySelector("img");
     const frame = tile.querySelector(".card-tile__image-frame");
+    tile.dataset.cardNumber = String(card.number);
     wikiLink.href = cardWikiUrl(card);
     tile.querySelector(".card-tile__number").textContent = `#${card.numberText}`;
     tile.querySelector(".card-tile__sacrifices").textContent = formatSacrificeBadge(card.level);
@@ -639,7 +384,7 @@ function renderGrid() {
       img.alt = `${card.name} image unavailable`;
       frame.dataset.missing = "Image unavailable";
     };
-    button.addEventListener("click", () => showDetail(card));
+    button.addEventListener("click", () => showDetail(card, { history: "push" }));
     fragment.append(tile);
   });
   els.grid.append(fragment);
@@ -650,6 +395,7 @@ function renderTable() {
   const fragment = document.createDocumentFragment();
   state.filtered.forEach((card) => {
     const row = document.createElement("tr");
+    row.dataset.cardNumber = String(card.number);
     row.innerHTML = `
       <td>#${card.numberText}</td>
       <td><strong>${escapeHtml(card.name)}</strong><a class="table-effect-link wiki-link" href="${escapeHtml(cardWikiUrl(card))}" target="_blank" rel="noreferrer">Effects</a></td>
@@ -666,7 +412,7 @@ function renderTable() {
     row.querySelector(".wiki-link").addEventListener("click", (event) => {
       event.stopPropagation();
     });
-    row.addEventListener("click", () => showDetail(card));
+    row.addEventListener("click", () => showDetail(card, { history: "push" }));
     fragment.append(row);
   });
   els.table.append(fragment);
@@ -800,7 +546,8 @@ function assetSlug(value) {
     .replace(/^-|-$/g, "");
 }
 
-function showDetail(card) {
+function showDetail(card, options = {}) {
+  state.selectedCardNumber = card.number;
   if (card.image) {
     els.detailImage.src = card.image;
     els.detailImage.hidden = false;
@@ -827,23 +574,33 @@ function showDetail(card) {
   ]
     .map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`)
     .join("");
-  setDetailOpen(true);
+  setDetailOpen(true, { updateUrl: false });
+  updateSelectedCardMarkers();
+  if (options.reveal) {
+    scrollToCard(card.number);
+  }
+  syncUrlFromState({ history: options.history || "push", updateUrl: options.updateUrl });
 }
 
-function setView(view) {
+function setView(view, options = {}) {
+  view = view === "table" ? "table" : DEFAULT_VIEW;
   state.view = view;
   els.grid.hidden = view !== "grid";
   els.tableWrap.hidden = view !== "table";
   els.gridButton.classList.toggle("is-active", view === "grid");
   els.tableButton.classList.toggle("is-active", view === "table");
-  render();
+  if (options.render !== false) {
+    render();
+  }
+  syncUrlFromState({ history: options.history || "replace", updateUrl: options.updateUrl });
 }
 
-function setTool(tool) {
+function setTool(tool, options = {}) {
+  tool = tool === "fieldTypes" ? "fieldTypes" : DEFAULT_TOOL;
   state.tool = tool;
   const isFieldTypes = tool === "fieldTypes";
   if (isFieldTypes) {
-    setDetailOpen(false);
+    setDetailOpen(false, { updateUrl: false });
     renderFieldTypes();
   }
 
@@ -853,14 +610,226 @@ function setTool(tool) {
   els.fieldTypesToolButton.classList.toggle("is-active", isFieldTypes);
   els.galleryToolButton.setAttribute("aria-pressed", String(!isFieldTypes));
   els.fieldTypesToolButton.setAttribute("aria-pressed", String(isFieldTypes));
+  setAriaCurrent(els.galleryToolButton, !isFieldTypes);
+  setAriaCurrent(els.fieldTypesToolButton, isFieldTypes);
   if (!isFieldTypes) {
     updateStickyOffset();
   }
+  syncUrlFromState({ history: options.history || "replace", updateUrl: options.updateUrl });
 }
 
-function setDetailOpen(isOpen) {
+function setAriaCurrent(element, isCurrent) {
+  if (isCurrent) {
+    element.setAttribute("aria-current", "page");
+  } else {
+    element.removeAttribute("aria-current");
+  }
+}
+
+function setDetailOpen(isOpen, options = {}) {
+  if (!isOpen) {
+    state.selectedCardNumber = null;
+  }
   els.detail.hidden = !isOpen;
   els.shell.classList.toggle("has-detail", isOpen);
+  updateSelectedCardMarkers();
+  syncUrlFromState({ history: options.history || "replace", updateUrl: options.updateUrl });
+}
+
+function applyUrlState(url, options = {}) {
+  isApplyingUrlState = true;
+  try {
+    const tool = toolFromPath(url.pathname);
+    setTool(tool, { updateUrl: false });
+    applyGalleryParams(url.searchParams);
+    setView(viewFromParam(url.searchParams.get("view")), { render: false, updateUrl: false });
+    state.selectedCardNumber = tool === "gallery" ? cardNumberFromUrlParam(url.searchParams.get("card")) : null;
+    updateSortDirectionButton();
+  } finally {
+    isApplyingUrlState = false;
+  }
+
+  if (options.replace) {
+    syncUrlFromState({ history: "replace" });
+  }
+}
+
+function applyGalleryParams(params) {
+  els.search.value = params.get("q") || "";
+  setSelectValue(els.sort, params.get("sort"), DEFAULT_SORT_KEY);
+  state.sortDirection = params.get("dir") === "desc" ? "desc" : DEFAULT_SORT_DIRECTION;
+
+  const maxCost = parseNumber(params.get("maxCost"));
+  els.maxCost.value = Number.isFinite(maxCost) && maxCost >= 0 ? String(maxCost) : "";
+
+  const sacrifices = new Set(
+    (params.get("sacrifices") || "")
+      .split(",")
+      .map((value) => parseNumber(value))
+      .filter((value) => [0, 1, 2, 3].includes(value)),
+  );
+  els.sacrifices.forEach((input) => {
+    input.checked = sacrifices.has(Number(input.value));
+  });
+
+  setSelectValue(els.kind, params.get("kind"), "all");
+  setSelectValue(els.type, params.get("type"), "all");
+  setSelectValue(els.attribute, params.get("attribute"), "all");
+  syncSortState();
+}
+
+function setSelectValue(select, value, fallback) {
+  const values = Array.from(select.options).map((option) => option.value);
+  select.value = value && values.includes(value) ? value : fallback;
+}
+
+function viewFromParam(value) {
+  return value === "table" ? "table" : DEFAULT_VIEW;
+}
+
+function syncSelectedDetailAfterRender(options = {}) {
+  if (state.tool !== "gallery" || state.selectedCardNumber === null) {
+    updateSelectedCardMarkers();
+    return;
+  }
+
+  const selectedCard = cardByNumber(state.selectedCardNumber);
+  const selectedIsVisible = state.filtered.some((card) => card.number === state.selectedCardNumber);
+  if (!selectedCard || !selectedIsVisible) {
+    setDetailOpen(false, { updateUrl: false });
+    return;
+  }
+
+  showDetail(selectedCard, {
+    reveal: Boolean(options.revealSelectedCard),
+    updateUrl: false,
+  });
+}
+
+function updateSelectedCardMarkers() {
+  document.querySelectorAll("[data-card-number]").forEach((element) => {
+    element.classList.toggle("is-selected", Number(element.dataset.cardNumber) === state.selectedCardNumber);
+  });
+}
+
+function scrollToCard(cardNumber) {
+  window.requestAnimationFrame(() => {
+    const target = document.querySelector(`[data-card-number="${cardNumber}"]`);
+    if (!target) return;
+    target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+  });
+}
+
+function syncUrlFromState(options = {}) {
+  if (isApplyingUrlState || options.updateUrl === false) return;
+
+  const nextUrl = currentStateUrl();
+  const currentUrl = `${location.pathname}${location.search}`;
+  if (nextUrl === currentUrl) return;
+
+  const method = options.history === "push" ? "pushState" : "replaceState";
+  try {
+    history[method]({ tool: state.tool }, "", nextUrl);
+  } catch {
+    // Some local file:// contexts reject path changes. The UI still keeps working.
+  }
+}
+
+function currentStateUrl() {
+  const route = ROUTE_BY_TOOL[state.tool] || ROUTE_BY_TOOL[DEFAULT_TOOL];
+  const path = joinRoutePath(ROUTE_BASE_PATH, route);
+  if (state.tool !== "gallery") {
+    return path;
+  }
+
+  const params = gallerySearchParams();
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+function gallerySearchParams() {
+  syncSortState();
+  const params = new URLSearchParams();
+  const query = els.search.value.trim();
+  const maxCost = parseNumber(els.maxCost.value);
+  const sacrifices = Array.from(selectedSacrificeValues()).sort((a, b) => a - b);
+
+  if (query) params.set("q", query);
+  if (state.sortKey !== DEFAULT_SORT_KEY) params.set("sort", state.sortKey);
+  if (state.sortDirection !== DEFAULT_SORT_DIRECTION) params.set("dir", state.sortDirection);
+  if (Number.isFinite(maxCost) && maxCost >= 0) params.set("maxCost", String(maxCost));
+  if (sacrifices.length) params.set("sacrifices", sacrifices.join(","));
+  if (els.kind.value !== "all") params.set("kind", els.kind.value);
+  if (els.type.value !== "all") params.set("type", els.type.value);
+  if (els.attribute.value !== "all") params.set("attribute", els.attribute.value);
+  if (state.view !== DEFAULT_VIEW) params.set("view", state.view);
+  if (state.selectedCardNumber !== null) params.set("card", padNumber(state.selectedCardNumber));
+
+  return params;
+}
+
+function navigationUrlFromLocation() {
+  const url = new URL(location.href);
+  const redirect = url.searchParams.get("redirect");
+  if (!redirect) return url;
+  return new URL(redirect, "https://reshef.local");
+}
+
+function getRouteBasePath() {
+  const pathname = location.pathname.replace(/\/index\.html$/i, "/");
+  const segments = pathname.split("/").filter(Boolean);
+  const routeIndex = segments.findIndex((segment) => routeSegmentToTool(segment));
+  if (routeIndex >= 0) {
+    const baseSegments = segments.slice(0, routeIndex);
+    return `/${baseSegments.join("/")}${baseSegments.length ? "/" : ""}`;
+  }
+  if (pathname.endsWith("/")) return pathname;
+  const lastSegment = segments[segments.length - 1] || "";
+  if (lastSegment && !lastSegment.includes(".")) return `${pathname}/`;
+  const lastSlash = pathname.lastIndexOf("/");
+  return pathname.slice(0, lastSlash + 1) || "/";
+}
+
+function joinRoutePath(basePath, route) {
+  const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
+  return `${normalizedBase}${route}`;
+}
+
+function toolFromPath(pathname) {
+  const segment = pathname.split("/").filter(Boolean).find((part) => routeSegmentToTool(part));
+  return routeSegmentToTool(segment) || DEFAULT_TOOL;
+}
+
+function routeSegmentToTool(segment) {
+  if (!segment) return null;
+  return TOOL_BY_ROUTE[normalizeRouteSegment(segment)] || null;
+}
+
+function normalizeRouteSegment(segment) {
+  return normalizeText(segment).toLowerCase().replace(/_/g, "-");
+}
+
+function cardNumberFromUrlParam(value) {
+  const normalized = normalizeText(value).replace(/^#/, "");
+  if (!normalized) return null;
+
+  if (/^\d{1,3}$/.test(normalized)) {
+    return cardByNumber(Number(normalized))?.number || null;
+  }
+
+  const slug = assetSlug(normalized);
+  const matchedCard = state.cards.find((card) => {
+    return (
+      assetSlug(card.name) === slug ||
+      nameKey(card.name) === nameKey(normalized) ||
+      nameKey(card.rodName) === nameKey(normalized)
+    );
+  });
+  return matchedCard?.number || null;
+}
+
+function cardByNumber(number) {
+  return state.cards.find((card) => card.number === number) || null;
 }
 
 function setupStickyOffset() {
@@ -963,10 +932,7 @@ function normalizeType(value) {
 }
 
 function normalizeImageUrl(value) {
-  if (!value) return "";
-  if (value.startsWith("//")) return `https:${value}`;
-  if (value.startsWith("/")) return `https://yugipedia.com${value}`;
-  return value;
+  return normalizeText(value);
 }
 
 function nameKey(value) {

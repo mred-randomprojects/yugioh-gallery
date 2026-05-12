@@ -63,20 +63,22 @@ select {
 }
 
 .masthead {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.5rem;
+  display: grid;
+  gap: 1rem;
   width: min(1480px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 1.5rem 0 1rem;
+  padding: 1.5rem 0 1.05rem;
   border-bottom: 1px solid var(--line);
+}
+
+.masthead__copy {
+  max-width: 980px;
 }
 
 .masthead h1 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2rem, 5vw, 4.25rem);
+  font-size: clamp(2.25rem, 5.6vw, 5.3rem);
   font-weight: 700;
   line-height: 0.95;
   text-transform: uppercase;
@@ -90,23 +92,18 @@ select {
   text-transform: uppercase;
 }
 
-.source-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
 .masthead__actions {
   display: grid;
   gap: 0.6rem;
-  justify-items: end;
+  justify-items: start;
+  width: 100%;
 }
 
 .tool-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(6.5rem, 1fr));
+  grid-template-columns: repeat(2, minmax(9rem, 1fr));
   overflow: hidden;
+  width: min(520px, 100%);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
@@ -125,8 +122,10 @@ select {
   background: var(--amber);
 }
 
-.source-strip a,
-.refresh-button,
+.tool-tabs button[aria-current="page"] {
+  box-shadow: 0 -3px 0 rgba(21, 22, 15, 0.34) inset;
+}
+
 .segmented button,
 .icon-button {
   border: 1px solid var(--line);
@@ -134,11 +133,6 @@ select {
   color: var(--ink);
   background: rgba(35, 37, 31, 0.82);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
-}
-
-.source-strip a {
-  padding: 0.62rem 0.8rem;
-  text-decoration: none;
 }
 
 .app-shell {
@@ -280,7 +274,6 @@ button:focus-visible {
 }
 
 .icon-button,
-.refresh-button,
 .segmented button {
   min-height: 2.5rem;
   cursor: pointer;
@@ -289,11 +282,6 @@ button:focus-visible {
 .icon-button {
   width: 2.7rem;
   font-size: 1.15rem;
-}
-
-.refresh-button {
-  padding: 0 0.9rem;
-  white-space: nowrap;
 }
 
 .segmented {
@@ -317,7 +305,7 @@ button:focus-visible {
 
 .status-panel {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
   margin: 0;
 }
@@ -388,6 +376,13 @@ button:focus-visible {
 
 .field-types-tool__header h2 {
   font-size: clamp(1.9rem, 4vw, 3.3rem);
+}
+
+.field-types-tool__header p:not(.eyebrow) {
+  max-width: 62ch;
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .type-index h3 {
@@ -807,6 +802,13 @@ button:focus-visible {
   border-color: rgba(240, 193, 90, 0.8);
 }
 
+.card-tile.is-selected .card-tile__button {
+  border-color: var(--amber);
+  box-shadow:
+    0 0 0 2px rgba(240, 193, 90, 0.22),
+    0 16px 30px rgba(0, 0, 0, 0.28);
+}
+
 .wiki-link {
   display: inline-grid;
   place-items: center;
@@ -971,6 +973,10 @@ tbody tr:hover {
   background: rgba(216, 163, 63, 0.08);
 }
 
+tbody tr.is-selected {
+  background: rgba(216, 163, 63, 0.16);
+}
+
 .detail {
   position: sticky;
   top: var(--detail-sticky-top, 6rem);
@@ -1058,15 +1064,6 @@ tbody tr:hover {
   color: var(--ink);
 }
 
-.footer {
-  width: min(1480px, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: 1.25rem 0 2rem;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
 @media (max-width: 1180px) {
   .app-shell.has-detail {
     grid-template-columns: minmax(0, 1fr);
@@ -1092,7 +1089,6 @@ tbody tr:hover {
     grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(130px, 1fr)) auto;
   }
 
-  .refresh-button,
   .segmented {
     grid-column: span 2;
   }
@@ -1101,7 +1097,6 @@ tbody tr:hover {
 @media (max-width: 780px) {
   .masthead {
     align-items: flex-start;
-    flex-direction: column;
   }
 
   .masthead__actions {
@@ -1111,10 +1106,6 @@ tbody tr:hover {
 
   .tool-tabs {
     width: 100%;
-  }
-
-  .source-strip {
-    justify-content: flex-start;
   }
 
   .controls,
@@ -1147,7 +1138,6 @@ tbody tr:hover {
   }
 
   .field--search,
-  .refresh-button,
   .segmented {
     grid-column: 1 / -1;
   }
@@ -1164,14 +1154,8 @@ tbody tr:hover {
 @media (max-width: 520px) {
   .app-shell.has-detail,
   .app-shell,
-  .masthead,
-  .footer {
+  .masthead {
     width: min(100% - 1rem, 1480px);
-  }
-
-  .source-strip a {
-    flex: 1 1 100%;
-    text-align: center;
   }
 
   .controls,

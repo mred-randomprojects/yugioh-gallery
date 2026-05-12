@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex">
+    <title>Reshef Archive</title>
+  </head>
+  <body>
+    <script>
+      (() => {
+        const routes = new Set(["gallery", "field-types", "fieldtypes", "fields"]);
+        const segments = location.pathname.split("/").filter(Boolean);
+        const routeIndex = segments.findIndex((segment) => routes.has(segment.toLowerCase().replace(/_/g, "-")));
+        const baseSegments = routeIndex >= 0 ? segments.slice(0, routeIndex) : [];
+        const routeSegments = routeIndex >= 0 ? segments.slice(routeIndex) : ["gallery"];
+        const basePath = `/${baseSegments.join("/")}${baseSegments.length ? "/" : ""}`;
+        const routePath = `/${routeSegments.join("/")}`;
+        const redirect = encodeURIComponent(`${routePath}${location.search}${location.hash}`);
+        location.replace(`${basePath}?redirect=${redirect}`);
+      })();
+    </script>
+  </body>
+</html>
