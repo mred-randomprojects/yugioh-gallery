@@ -21,6 +21,116 @@ const CARD_WIKI_PAGE_OVERRIDES = {
   586: 'Spirit_Message_"A"_(ROD)',
   587: 'Spirit_Message_"L"_(ROD)',
 };
+const FIELD_CARD_IMAGES = {
+  Forest: "assets/cards/downloaded/Forest-ROD-EN-VG.webp",
+  Wasteland: "assets/cards/downloaded/Wasteland-ROD-EN-VG.webp",
+  Mountain: "assets/cards/downloaded/Mountain-ROD-EN-VG.webp",
+  Sogen: "assets/cards/downloaded/Sogen-ROD-EN-VG.webp",
+  Umi: "assets/cards/downloaded/Umi-ROD-EN-VG.webp",
+  Yami: "assets/cards/downloaded/Yami-ROD-EN-VG.webp",
+};
+const MONSTER_TYPES = [
+  "Aqua",
+  "Beast",
+  "Beast-Warrior",
+  "Dinosaur",
+  "Dragon",
+  "Fairy",
+  "Fiend",
+  "Fish",
+  "Insect",
+  "Machine",
+  "Plant",
+  "Pyro",
+  "Reptile",
+  "Rock",
+  "Sea Serpent",
+  "Spellcaster",
+  "Thunder",
+  "Warrior",
+  "Winged Beast",
+  "Zombie",
+];
+const TYPE_ICON_META = {
+  Aqua: { code: "AQ", color: "#46bad1" },
+  Beast: { code: "BE", color: "#bc9b55" },
+  "Beast-Warrior": { code: "BW", color: "#d08b4c" },
+  Dinosaur: { code: "DI", color: "#8da75c" },
+  Dragon: { code: "DR", color: "#c46862" },
+  Fairy: { code: "FA", color: "#f3d783" },
+  Fiend: { code: "FI", color: "#9a6fbd" },
+  Fish: { code: "FS", color: "#4f92c9" },
+  Insect: { code: "IN", color: "#6aa756" },
+  Machine: { code: "MA", color: "#9aa0a6" },
+  Plant: { code: "PL", color: "#5db86e" },
+  Pyro: { code: "PY", color: "#df6542" },
+  Reptile: { code: "RE", color: "#7aa665" },
+  Rock: { code: "RO", color: "#a98d67" },
+  "Sea Serpent": { code: "SS", color: "#3d8bbd" },
+  Spellcaster: { code: "SC", color: "#7d7fe1" },
+  Thunder: { code: "TH", color: "#f0c84d" },
+  Warrior: { code: "WA", color: "#d0aa68" },
+  "Winged Beast": { code: "WB", color: "#8db3cf" },
+  Zombie: { code: "ZO", color: "#8f9890" },
+};
+const TERRAIN_CHEATSHEET = [
+  {
+    name: "Arena",
+    slug: "arena",
+    cardName: "",
+    mapImage: "assets/fields/arena.png",
+    boosted: [],
+    debuffed: [],
+  },
+  {
+    name: "Forest",
+    slug: "forest",
+    cardName: "Forest",
+    mapImage: "assets/fields/forest.png",
+    boosted: [{ type: "Plant" }, { type: "Beast-Warrior" }, { type: "Insect" }, { type: "Beast" }],
+    debuffed: [],
+  },
+  {
+    name: "Wasteland",
+    slug: "wasteland",
+    cardName: "Wasteland",
+    mapImage: "assets/fields/wasteland.png",
+    boosted: [{ type: "Zombie", alias: "Undead" }, { type: "Dinosaur" }, { type: "Rock" }],
+    debuffed: [],
+  },
+  {
+    name: "Mountain",
+    slug: "mountain",
+    cardName: "Mountain",
+    mapImage: "assets/fields/mountain.png",
+    boosted: [{ type: "Dragon" }, { type: "Winged Beast", alias: "Bird" }, { type: "Thunder", alias: "Lightning" }],
+    debuffed: [],
+  },
+  {
+    name: "Sogen",
+    slug: "sogen",
+    cardName: "Sogen",
+    mapImage: "assets/fields/sogen.png",
+    boosted: [{ type: "Beast-Warrior" }, { type: "Warrior" }],
+    debuffed: [],
+  },
+  {
+    name: "Umi",
+    slug: "umi",
+    cardName: "Umi",
+    mapImage: "assets/fields/umi.png",
+    boosted: [{ type: "Aqua", alias: "Water" }, { type: "Fish" }, { type: "Sea Serpent", alias: "Sea Dragon" }, { type: "Thunder", alias: "Lightning" }],
+    debuffed: [{ type: "Machine" }, { type: "Pyro", alias: "Fire" }],
+  },
+  {
+    name: "Yami",
+    slug: "yami",
+    cardName: "Yami",
+    mapImage: "assets/fields/yami.png",
+    boosted: [{ type: "Spellcaster", alias: "Magician" }, { type: "Fiend", alias: "Demon" }],
+    debuffed: [{ type: "Fairy", alias: "Angel" }],
+  },
+];
 let controlsResizeObserver = null;
 
 const state = {
@@ -29,9 +139,12 @@ const state = {
   sortKey: "number",
   sortDirection: "asc",
   view: "grid",
+  tool: "gallery",
 };
 
 const els = {
+  galleryToolButton: document.querySelector("#galleryToolButton"),
+  fieldTypesToolButton: document.querySelector("#fieldTypesToolButton"),
   search: document.querySelector("#searchInput"),
   sort: document.querySelector("#sortSelect"),
   direction: document.querySelector("#directionButton"),
@@ -61,6 +174,9 @@ const els = {
   detailName: document.querySelector("#detailName"),
   detailWiki: document.querySelector("#detailWikiLink"),
   detailStats: document.querySelector("#detailStats"),
+  fieldTypesTool: document.querySelector("#fieldTypesTool"),
+  terrainGrid: document.querySelector("#terrainGrid"),
+  typeLegend: document.querySelector("#typeLegend"),
 };
 
 document.addEventListener("DOMContentLoaded", init);
@@ -70,6 +186,7 @@ function init() {
   updateSortDirectionButton();
   bindEvents();
   setupStickyOffset();
+  renderFieldTypes();
   if (location.protocol === "file:") {
     els.refresh.textContent = "Import Needed";
     els.refresh.title = "Run node scripts/import-data.mjs, then reload this file.";
@@ -82,6 +199,8 @@ function init() {
 }
 
 function bindEvents() {
+  els.galleryToolButton.addEventListener("click", () => setTool("gallery"));
+  els.fieldTypesToolButton.addEventListener("click", () => setTool("fieldTypes"));
   els.search.addEventListener("input", render);
   els.sort.addEventListener("change", () => {
     syncSortState();
@@ -128,6 +247,7 @@ function hydrateFromCache() {
     state.cards = cached.cards.map(normalizeCard);
     els.cacheStatus.textContent = "Warm";
     populateFilters();
+    renderFieldTypes();
     render();
     return true;
   } catch {
@@ -143,6 +263,7 @@ function loadEmbeddedData() {
   els.cacheStatus.textContent = "Local";
   showMessage("");
   populateFilters();
+  renderFieldTypes();
   render();
   return true;
 }
@@ -185,6 +306,7 @@ async function loadSourceData(options = {}) {
     showMessage("");
   }
   populateFilters();
+  renderFieldTypes();
   render();
 }
 
@@ -550,6 +672,134 @@ function renderTable() {
   els.table.append(fragment);
 }
 
+function renderFieldTypes() {
+  if (!els.terrainGrid || !els.typeLegend) return;
+
+  const fragment = document.createDocumentFragment();
+  TERRAIN_CHEATSHEET.forEach((terrain) => {
+    const fieldCard = terrain.cardName ? cardByName(terrain.cardName) : null;
+    const article = document.createElement("article");
+    article.className = `terrain-card terrain-card--${terrain.slug}`;
+    article.innerHTML = `
+      <div class="terrain-card__map">
+        ${terrainArtHtml(terrain)}
+      </div>
+      <div class="terrain-card__identity">
+        <h3>${escapeHtml(terrain.name)}</h3>
+        ${fieldCardHtml(terrain, fieldCard)}
+      </div>
+      <div class="terrain-card__effects">
+        ${effectBlock("+30% ATK/DEF", terrain.boosted, "boost")}
+        ${effectBlock("-30% ATK/DEF", terrain.debuffed, "debuff")}
+      </div>
+    `;
+    fragment.append(article);
+  });
+
+  els.terrainGrid.replaceChildren(fragment);
+  renderTypeLegend();
+}
+
+function terrainArtHtml(terrain) {
+  if (terrain.mapImage) {
+    return `
+      <span class="terrain-art terrain-art--image" role="img" aria-label="${escapeHtml(terrain.name)} terrain">
+        <img src="${escapeHtml(terrain.mapImage)}" alt="">
+      </span>
+    `;
+  }
+
+  return `
+    <span class="terrain-art terrain-art--${escapeHtml(terrain.slug)}" role="img" aria-label="${escapeHtml(terrain.name)} terrain">
+      <span class="terrain-art__grid" aria-hidden="true"></span>
+    </span>
+  `;
+}
+
+function fieldCardHtml(terrain, fieldCard) {
+  if (!terrain.cardName) {
+    return `
+      <div class="terrain-card__field-card terrain-card__field-card--default">
+        <span class="default-card-icon" aria-hidden="true"></span>
+        <span>
+          <b>Default arena</b>
+          <small>No field card required</small>
+        </span>
+      </div>
+    `;
+  }
+
+  const image = fieldCard?.image || FIELD_CARD_IMAGES[terrain.cardName] || "";
+  const cardNumber = fieldCard?.numberText ? `#${fieldCard.numberText} ` : "";
+  const url = fieldCard ? cardWikiUrl(fieldCard) : cardWikiUrl({ name: terrain.cardName, number: 0 });
+
+  return `
+    <a class="terrain-card__field-card" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">
+      <img src="${escapeHtml(image)}" alt="${escapeHtml(terrain.cardName)} card">
+      <span>
+        <b>${escapeHtml(terrain.cardName)}</b>
+        <small>${escapeHtml(cardNumber)}Field card</small>
+      </span>
+    </a>
+  `;
+}
+
+function effectBlock(label, items, tone) {
+  const content = items.length
+    ? `<div class="type-chip-list">${items.map((item) => typeChip(item, tone)).join("")}</div>`
+    : `<p class="effect-none">None</p>`;
+
+  return `
+    <section class="terrain-effect terrain-effect--${escapeHtml(tone)}">
+      <span class="terrain-effect__label">${escapeHtml(label)}</span>
+      ${content}
+    </section>
+  `;
+}
+
+function renderTypeLegend() {
+  const discoveredTypes = uniqueSorted(
+    state.cards
+      .filter(isMonster)
+      .map((card) => card.type)
+      .filter((type) => MONSTER_TYPES.includes(type)),
+  );
+  const types = discoveredTypes.length ? discoveredTypes : MONSTER_TYPES;
+  els.typeLegend.innerHTML = types.map((type) => typeChip({ type }, "legend")).join("");
+}
+
+function typeChip(item, tone = "legend") {
+  const meta = TYPE_ICON_META[item.type] || {
+    code: item.type.slice(0, 2).toUpperCase(),
+    color: "#afa58d",
+  };
+  const image = `assets/types/${assetSlug(item.type)}.png`;
+  const alias = item.alias ? `<small>${escapeHtml(item.alias)}</small>` : "";
+  return `
+    <span class="type-chip type-chip--${escapeHtml(tone)}" style="--type-color: ${escapeHtml(meta.color)}" title="${escapeHtml(item.alias ? `${item.type} / ${item.alias}` : item.type)}">
+      <span class="type-chip__icon" aria-hidden="true">
+        <img src="${escapeHtml(image)}" alt="" loading="lazy">
+      </span>
+      <span class="type-chip__text">
+        <span>${escapeHtml(item.type)}</span>
+        ${alias}
+      </span>
+    </span>
+  `;
+}
+
+function cardByName(name) {
+  const key = nameKey(name);
+  return state.cards.find((card) => nameKey(card.name) === key || nameKey(card.rodName) === key) || null;
+}
+
+function assetSlug(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function showDetail(card) {
   if (card.image) {
     els.detailImage.src = card.image;
@@ -587,6 +837,25 @@ function setView(view) {
   els.gridButton.classList.toggle("is-active", view === "grid");
   els.tableButton.classList.toggle("is-active", view === "table");
   render();
+}
+
+function setTool(tool) {
+  state.tool = tool;
+  const isFieldTypes = tool === "fieldTypes";
+  if (isFieldTypes) {
+    setDetailOpen(false);
+    renderFieldTypes();
+  }
+
+  els.shell.classList.toggle("is-field-types", isFieldTypes);
+  els.fieldTypesTool.hidden = !isFieldTypes;
+  els.galleryToolButton.classList.toggle("is-active", !isFieldTypes);
+  els.fieldTypesToolButton.classList.toggle("is-active", isFieldTypes);
+  els.galleryToolButton.setAttribute("aria-pressed", String(!isFieldTypes));
+  els.fieldTypesToolButton.setAttribute("aria-pressed", String(isFieldTypes));
+  if (!isFieldTypes) {
+    updateStickyOffset();
+  }
 }
 
 function setDetailOpen(isOpen) {

@@ -12,14 +12,20 @@
         <p class="eyebrow">Yu-Gi-Oh! Reshef of Destruction</p>
         <h1>European Card Archive</h1>
       </div>
-      <div class="source-strip" aria-label="Source links">
-        <a href="https://yugipedia.com/wiki/Gallery_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards_(European_English)" target="_blank" rel="noreferrer">Gallery</a>
-        <a href="https://yugipedia.com/wiki/List_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards" target="_blank" rel="noreferrer">Stats</a>
+      <div class="masthead__actions">
+        <nav class="tool-tabs" aria-label="Tool selector">
+          <button id="galleryToolButton" class="is-active" type="button" aria-pressed="true">Gallery</button>
+          <button id="fieldTypesToolButton" type="button" aria-pressed="false">Field Types</button>
+        </nav>
+        <div class="source-strip" aria-label="Source links">
+          <a href="https://yugipedia.com/wiki/Gallery_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards_(European_English)" target="_blank" rel="noreferrer">Gallery source</a>
+          <a href="https://yugipedia.com/wiki/List_of_Yu-Gi-Oh!_Reshef_of_Destruction_cards" target="_blank" rel="noreferrer">Card list source</a>
+        </div>
       </div>
     </header>
 
     <div id="appShell" class="app-shell">
-      <section class="controls" aria-label="Card controls">
+      <section class="controls gallery-only" aria-label="Card controls">
         <label class="field field--search">
           <span>Search</span>
           <input id="searchInput" type="search" placeholder="Name, #, password, type, alignment, sacrifices">
@@ -103,7 +109,7 @@
         <button id="refreshButton" class="refresh-button" type="button">Refresh Source</button>
       </section>
 
-      <section class="status-panel" aria-live="polite">
+      <section class="status-panel gallery-only" aria-live="polite">
         <div>
           <span class="status-label">Loaded</span>
           <strong id="loadedCount">0</strong>
@@ -122,9 +128,9 @@
         </div>
       </section>
 
-      <section id="message" class="message" hidden></section>
+      <section id="message" class="message gallery-only" hidden></section>
 
-      <main class="app">
+      <main class="app gallery-only">
         <section id="cardGrid" class="card-grid" aria-label="Card grid"></section>
 
         <section id="tableWrap" class="table-wrap" hidden>
@@ -149,7 +155,30 @@
         </section>
       </main>
 
-      <aside id="detailPanel" class="detail" hidden aria-label="Card detail">
+      <section id="fieldTypesTool" class="field-types-tool" hidden aria-label="Field types">
+        <header class="field-types-tool__header">
+          <div>
+            <p class="eyebrow">Field Cheat Sheet</p>
+            <h2>Field Types</h2>
+          </div>
+          <div class="field-types-summary" aria-label="Terrain modifier summary">
+            <span>+30% ATK/DEF</span>
+            <span>-30% ATK/DEF</span>
+          </div>
+        </header>
+
+        <div id="terrainGrid" class="terrain-grid" aria-label="Terrain modifier cards"></div>
+
+        <section class="type-index" aria-label="Monster type icon legend">
+          <header>
+            <p class="eyebrow">Type Icons</p>
+            <h3>Monster Types</h3>
+          </header>
+          <div id="typeLegend" class="type-legend"></div>
+        </section>
+      </section>
+
+      <aside id="detailPanel" class="detail gallery-only" hidden aria-label="Card detail">
         <button id="closeDetail" class="detail__close" type="button" aria-label="Close detail">&times;</button>
         <img id="detailImage" alt="">
         <div class="detail__body">
